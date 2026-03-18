@@ -30,9 +30,9 @@
             height: 100%;
             background-color: var(--bg-color);
             font-family: 'Space Grotesk', sans-serif;
-            overflow: hidden; /* 防止移动端滑动导致页面滚动 */
+            overflow: hidden;
             color: var(--text-main);
-            touch-action: none; /* 禁用浏览器默认的触摸动作 */
+            touch-action: none; 
         }
 
         #webgl-canvas {
@@ -112,29 +112,26 @@
             max-width: 400px;
         }
 
-        /* 移动端响应式适配 */
+        /* 移动端精确适配 */
         @media (max-width: 768px) {
             .ui-layer {
-                padding: 25px 20px;
+                padding: 30px 20px;
             }
-            
             header {
                 flex-direction: column;
                 align-items: center;
-                gap: 8px;
-                font-size: 0.8rem;
-                letter-spacing: 0.1em;
+                gap: 10px;
+                font-size: 0.85rem;
+                letter-spacing: 0.15em;
             }
-
             .domain-title {
-                font-size: 1.1rem;
-                bottom: 70px;
+                font-size: 1.2rem;
+                bottom: 80px;
                 letter-spacing: 0.3em;
             }
-
             .instruction {
-                font-size: 0.6rem;
-                bottom: 30px;
+                font-size: 0.65rem;
+                bottom: 40px;
             }
         }
     </style>
@@ -160,19 +157,14 @@
     <script>
         const canvas = document.getElementById('webgl-canvas');
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x050608, 0.001);
+        scene.fog = new THREE.FogExp2(0x050608, 0.0015); 
 
+      
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-        
-        // 核心优化：动态计算相机距离。如果是手机（窄屏），把相机往后拉，确保标志能完整显示
-        function updateCameraZ() {
-            return window.innerWidth < 768 ? 1300 : 800; 
-        }
-        camera.position.z = updateCameraZ();
+        camera.position.z = 800; 
 
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        // 限制移动端像素比，避免低端手机卡顿
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
         let particleSystem;
@@ -212,10 +204,18 @@
             const geometry = new THREE.BufferGeometry();
             const positions = [];
             const colors = [];
+      
+            const isMobile = window.innerWidth <= 768;
             
-            // 为了提升手机端性能，可以稍微调大 step 值（粒子数量变少）。这里保持 5 平衡效果与性能。
-            const step = 5; 
-            
+           
+            const scale = isMobile ? 0.35 : 0.8; 
+       
+            const depthScale = isMobile ? 25 : 60; 
+          
+            const step = isMobile ? 4 : 5; 
+         
+            const particleSize = isMobile ? 3.0 : 2.5; 
+
             for (let y = 0; y < height; y += step) {
                 for (let x = 0; x < width; x += step) {
                     const index = (y * width + x) * 4;
@@ -227,9 +227,10 @@
                     const brightness = (r + g + b) / 3;
                     if (a > 50 && brightness > 30) {
                         
-                        const pX = (x - width / 2) * 0.8;
-                        const pY = -(y - height / 2) * 0.8; 
-                        const pZ = (brightness / 255) * 60 - 30; 
+                        
+                        const pX = (x - width / 2) * scale;
+                        const pY = -(y - height / 2) * scale; 
+                        const pZ = (brightness / 255) * depthScale - (depthScale / 2); 
 
                         positions.push(pX, pY, pZ);
                         originalPositions.push({ x: pX, y: pY, z: pZ });
@@ -248,11 +249,11 @@
             geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
             const material = new THREE.PointsMaterial({
-                size: 2.5,
+                size: particleSize, 
                 vertexColors: true,
-                blending: THREE.AdditiveBlending,
+                blending: THREE.AdditiveBlending, 
                 transparent: true,
-                opacity: 0.9,
+                opacity: 0.95, 
                 depthWrite: false
             });
 
@@ -262,7 +263,7 @@
             animate();
         }
 
-        // --- 交互逻辑统一处理 (兼容鼠标和触摸) ---
+
         const mouse = new THREE.Vector2(-9999, -9999);
         let targetX = 0;
         let targetY = 0;
@@ -271,23 +272,22 @@
             mouse.x = (clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(clientY / window.innerHeight) * 2 + 1;
             
-            targetX = (clientX - window.innerWidth / 2) * 0.2;
-            targetY = (clientY - window.innerHeight / 2) * 0.2;
+
+            const parallaxScale = window.innerWidth <= 768 ? 0.1 : 0.2;
+            targetX = (clientX - window.innerWidth / 2) * parallaxScale;
+            targetY = (clientY - window.innerHeight / 2) * parallaxScale;
         }
 
-        // 桌面端鼠标事件
         document.addEventListener('mousemove', (event) => {
             updateInteractPosition(event.clientX, event.clientY);
         });
 
-        // 移动端触摸事件
         document.addEventListener('touchmove', (event) => {
             if(event.touches.length > 0) {
                 updateInteractPosition(event.touches[0].clientX, event.touches[0].clientY);
             }
-        }, { passive: false }); // passive: false 确保可以阻止默认滚动
+        }, { passive: false });
 
-        // 触摸结束后让效果归位
         document.addEventListener('touchend', () => {
             mouse.x = -9999;
             mouse.y = -9999;
@@ -302,6 +302,7 @@
             time += 0.01;
 
             if (particleSystem) {
+                const isMobile = window.innerWidth <= 768;
                 const positions = particleSystem.geometry.attributes.position.array;
                 
                 for (let i = 0; i < originalPositions.length; i++) {
@@ -310,9 +311,14 @@
                     const data = particlesData[i];
                     
                     data.phase += data.speed;
-                    let currentX = orig.x + Math.sin(data.phase) * 3;
-                    let currentY = orig.y + Math.cos(data.phase) * 3;
-                    let currentZ = orig.z + Math.sin(time * 2 + orig.x * 0.01) * 15;
+                    
+
+                    const waveAmplitude = isMobile ? 1.5 : 3;
+                    const zWaveAmplitude = isMobile ? 5 : 15;
+                    
+                    let currentX = orig.x + Math.sin(data.phase) * waveAmplitude;
+                    let currentY = orig.y + Math.cos(data.phase) * waveAmplitude;
+                    let currentZ = orig.z + Math.sin(time * 2 + orig.x * 0.01) * zWaveAmplitude;
 
                     const mouseIn3D_X = mouse.x * (window.innerWidth / 2.5);
                     const mouseIn3D_Y = mouse.y * (window.innerHeight / 2.5);
@@ -321,7 +327,9 @@
                     const dy = mouseIn3D_Y - currentY;
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
-                    const interactRadius = 150; 
+
+                    const interactRadius = isMobile ? 70 : 150; 
+                    
                     if (distance < interactRadius) {
                         const force = (interactRadius - distance) / interactRadius;
                         currentX -= (dx / distance) * force * 50;
@@ -344,13 +352,11 @@
             renderer.render(scene, camera);
         }
 
-        // 窗口缩放适配
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
-            // 窗口缩放时，重新计算相机距离
-            camera.position.z = updateCameraZ();
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+          
         });
     </script>
 </body>
