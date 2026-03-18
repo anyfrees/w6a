@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>W6A.COM | 您的专属空间</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,8 +30,9 @@
             height: 100%;
             background-color: var(--bg-color);
             font-family: 'Space Grotesk', sans-serif;
-            overflow: hidden;
+            overflow: hidden; /* 防止移动端滑动导致页面滚动 */
             color: var(--text-main);
+            touch-action: none; /* 禁用浏览器默认的触摸动作 */
         }
 
         #webgl-canvas {
@@ -61,11 +62,12 @@
             font-size: 1rem;
             letter-spacing: 0.2em;
             color: rgba(255, 255, 255, 0.5);
+            width: 100%;
         }
 
         .domain-title {
             position: absolute;
-            bottom: 60px;
+            bottom: 80px;
             left: 50%;
             transform: translateX(-50%);
             font-size: 1.5rem;
@@ -73,17 +75,19 @@
             font-weight: 300;
             text-transform: uppercase;
             text-shadow: 0 0 20px rgba(29, 233, 182, 0.5);
+            white-space: nowrap;
         }
 
         .instruction {
             position: absolute;
-            bottom: 30px;
+            bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
             font-size: 0.8rem;
             color: rgba(255, 255, 255, 0.3);
             letter-spacing: 0.1em;
             animation: pulseText 2s infinite alternate;
+            white-space: nowrap;
         }
 
         @keyframes pulseText {
@@ -104,6 +108,34 @@
             z-index: 100;
             backdrop-filter: blur(10px);
             border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        /* 移动端响应式适配 */
+        @media (max-width: 768px) {
+            .ui-layer {
+                padding: 25px 20px;
+            }
+            
+            header {
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.8rem;
+                letter-spacing: 0.1em;
+            }
+
+            .domain-title {
+                font-size: 1.1rem;
+                bottom: 70px;
+                letter-spacing: 0.3em;
+            }
+
+            .instruction {
+                font-size: 0.6rem;
+                bottom: 30px;
+            }
         }
     </style>
 </head>
@@ -111,6 +143,7 @@
 
     <div id="error-msg">
         <h3 style="color: #ff4d4d; margin-bottom: 10px;">⚠️ 无法读取图像像素</h3>
+        <p style="font-size: 0.9rem; color: #ccc;">请使用本地服务器运行此文件。</p>
     </div>
 
     <canvas id="webgl-canvas"></canvas>
@@ -120,7 +153,7 @@
             <div>欢迎您</div>
             <div>联系：i@svip.email</div>
         </header>
-        <div class="domain-title">域名正在出售 </div>
+        <div class="domain-title">域名正在出售</div>
         <div class="instruction">W6A.COM 版权所有</div>
     </div>
 
@@ -130,11 +163,17 @@
         scene.fog = new THREE.FogExp2(0x050608, 0.001);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-        camera.position.z = 800; // 相机距离保持不变，通过缩小内部坐标来让画面更精致
+        
+        // 核心优化：动态计算相机距离。如果是手机（窄屏），把相机往后拉，确保标志能完整显示
+        function updateCameraZ() {
+            return window.innerWidth < 768 ? 1300 : 800; 
+        }
+        camera.position.z = updateCameraZ();
 
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
+        // 限制移动端像素比，避免低端手机卡顿
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
         let particleSystem;
         let originalPositions = [];
@@ -174,6 +213,7 @@
             const positions = [];
             const colors = [];
             
+            // 为了提升手机端性能，可以稍微调大 step 值（粒子数量变少）。这里保持 5 平衡效果与性能。
             const step = 5; 
             
             for (let y = 0; y < height; y += step) {
@@ -187,11 +227,8 @@
                     const brightness = (r + g + b) / 3;
                     if (a > 50 && brightness > 30) {
                         
-                        // 【修改点 1：缩小映射比例】从 1.5 改为 0.8，整体标志变小，更聚拢
                         const pX = (x - width / 2) * 0.8;
                         const pY = -(y - height / 2) * 0.8; 
-                        
-                        // 【修改点 2：缩小深度厚度】从 100 改为 60，避免变小后显得太厚重
                         const pZ = (brightness / 255) * 60 - 30; 
 
                         positions.push(pX, pY, pZ);
@@ -211,7 +248,7 @@
             geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
             const material = new THREE.PointsMaterial({
-                size: 2.5, // 【修改点 3：缩小粒子尺寸】从 2.5 改为 1.8，让小尺寸下的标志更细腻清晰
+                size: 2.5,
                 vertexColors: true,
                 blending: THREE.AdditiveBlending,
                 transparent: true,
@@ -225,16 +262,37 @@
             animate();
         }
 
+        // --- 交互逻辑统一处理 (兼容鼠标和触摸) ---
         const mouse = new THREE.Vector2(-9999, -9999);
         let targetX = 0;
         let targetY = 0;
 
-        document.addEventListener('mousemove', (event) => {
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        function updateInteractPosition(clientX, clientY) {
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
             
-            targetX = (event.clientX - window.innerWidth / 2) * 0.2;
-            targetY = (event.clientY - window.innerHeight / 2) * 0.2;
+            targetX = (clientX - window.innerWidth / 2) * 0.2;
+            targetY = (clientY - window.innerHeight / 2) * 0.2;
+        }
+
+        // 桌面端鼠标事件
+        document.addEventListener('mousemove', (event) => {
+            updateInteractPosition(event.clientX, event.clientY);
+        });
+
+        // 移动端触摸事件
+        document.addEventListener('touchmove', (event) => {
+            if(event.touches.length > 0) {
+                updateInteractPosition(event.touches[0].clientX, event.touches[0].clientY);
+            }
+        }, { passive: false }); // passive: false 确保可以阻止默认滚动
+
+        // 触摸结束后让效果归位
+        document.addEventListener('touchend', () => {
+            mouse.x = -9999;
+            mouse.y = -9999;
+            targetX = 0;
+            targetY = 0;
         });
 
         let time = 0;
@@ -263,7 +321,6 @@
                     const dy = mouseIn3D_Y - currentY;
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
-                    // 【修改点 4：缩小交互排斥半径】从 150 改为 100，适应缩小后的标志
                     const interactRadius = 150; 
                     if (distance < interactRadius) {
                         const force = (interactRadius - distance) / interactRadius;
@@ -287,8 +344,11 @@
             renderer.render(scene, camera);
         }
 
+        // 窗口缩放适配
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
+            // 窗口缩放时，重新计算相机距离
+            camera.position.z = updateCameraZ();
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
