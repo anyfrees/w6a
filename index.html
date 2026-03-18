@@ -1,363 +1,218 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>W6A.COM | 您的专属空间</title>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;700&display=swap" rel="stylesheet">
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>W6A.COM | 您的专属域名</title>
 
-    <style>
-        :root {
-            --bg-color: #050608;
-            --text-main: #ffffff;
-            --neon-cyan: #1de9b6;
-        }
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            cursor: crosshair;
-        }
-
-        body, html {
-            width: 100%;
-            height: 100%;
-            background-color: var(--bg-color);
-            font-family: 'Space Grotesk', sans-serif;
-            overflow: hidden;
-            color: var(--text-main);
-            touch-action: none; 
-        }
-
-        #webgl-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 1;
-        }
-
-        .ui-layer {
-            position: absolute;
-            z-index: 10;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 40px;
-            pointer-events: none;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            font-size: 1rem;
-            letter-spacing: 0.2em;
-            color: rgba(255, 255, 255, 0.5);
-            width: 100%;
-        }
-
-        .domain-title {
-            position: absolute;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 1.5rem;
-            letter-spacing: 0.5em;
-            font-weight: 300;
-            text-transform: uppercase;
-            text-shadow: 0 0 20px rgba(29, 233, 182, 0.5);
-            white-space: nowrap;
-        }
-
-        .instruction {
-            position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.3);
-            letter-spacing: 0.1em;
-            animation: pulseText 2s infinite alternate;
-            white-space: nowrap;
-        }
-
-        @keyframes pulseText {
-            0% { opacity: 0.3; }
-            100% { opacity: 0.8; }
-        }
-
-        #error-msg {
-            display: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 0, 0, 0.1);
-            border: 1px solid rgba(255, 0, 0, 0.3);
-            padding: 30px;
-            text-align: center;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-            border-radius: 10px;
-            width: 90%;
-            max-width: 400px;
-        }
-
-        /* 移动端精确适配 */
-        @media (max-width: 768px) {
-            .ui-layer {
-                padding: 30px 20px;
-            }
-            header {
-                flex-direction: column;
-                align-items: center;
-                gap: 10px;
-                font-size: 0.85rem;
-                letter-spacing: 0.15em;
-            }
-            .domain-title {
-                font-size: 1.2rem;
-                bottom: 80px;
-                letter-spacing: 0.3em;
-            }
-            .instruction {
-                font-size: 0.65rem;
-                bottom: 40px;
-            }
-        }
-    </style>
+<style>
+body{margin:0;overflow:hidden;background:#050608;font-family:'Space Grotesk';color:#fff;touch-action:none;}
+canvas{position:fixed;top:0;left:0}
+.ui{position:absolute;width:100%;height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:40px;box-sizing:border-box;pointer-events:none}
+.title{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);letter-spacing:0.4em;white-space:nowrap;text-align:center;}
+@media (max-width: 768px) {
+  .ui { padding: 20px; }
+  .title { bottom: 60px; font-size: 14px; letter-spacing: 0.2em; }
+}
+</style>
 </head>
 <body>
+<canvas id="c"></canvas>
+<div class="ui">
+<div>欢迎您！</div>
+<div class="title">域名正在出售,请报价发送至：i@svip.email</div>
+</div>
 
-    <div id="error-msg">
-        <h3 style="color: #ff4d4d; margin-bottom: 10px;">⚠️ 无法读取图像像素</h3>
-        <p style="font-size: 0.9rem; color: #ccc;">请使用本地服务器运行此文件。</p>
-    </div>
+<script>
+const canvas = document.getElementById('c');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 3000);
 
-    <canvas id="webgl-canvas"></canvas>
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
 
-    <div class="ui-layer">
-        <header>
-            <div>欢迎您</div>
-            <div>联系：i@svip.email</div>
-        </header>
-        <div class="domain-title">域名正在出售</div>
-        <div class="instruction">W6A.COM 版权所有</div>
-    </div>
+function updateCamera() {
+  const aspect = innerWidth / innerHeight;
+  camera.aspect = aspect;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
 
-    <script>
-        const canvas = document.getElementById('webgl-canvas');
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x050608, 0.0015); 
+  const baseAspect = 1.2;
+  if (aspect < baseAspect) {
+    camera.position.z = 650 * (baseAspect / aspect);
+  } else {
+    camera.position.z = 650;
+  }
+}
+updateCamera();
 
+let particles, orig = [], data = [];
+
+const img = new Image();
+img.src = 'image_16.png';
+img.onload = () => init(img);
+
+function init(img){
+  const cvs = document.createElement('canvas');
+  const ctx = cvs.getContext('2d');
+  cvs.width = img.width;
+  cvs.height = img.height;
+  ctx.drawImage(img, 0, 0);
+
+  const d = ctx.getImageData(0,0,img.width,img.height).data;
+
+  const geo = new THREE.BufferGeometry();
+  const pos = [];
+  const col = [];
+
+  for(let y=0; y<img.height; y+=4){
+    for(let x=0; x<img.width; x+=4){
+      const i = (y*img.width + x) * 4;
+      const r=d[i], g=d[i+1], b=d[i+2], a=d[i+3];
+      if(a>100){
+        const px=(x-img.width/2);
+        const py=-(y-img.height/2);
+        const pz=(r+g+b)/3/255*60-30;
+        pos.push(px,py,pz);
+        col.push(r/255,g/255,b/255);
+        orig.push({x:px,y:py,z:pz});
+        data.push({p:Math.random()*6, s:0.005+Math.random()*0.005});
+      }
+    }
+  }
+
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col,3));
+
+  const mat = new THREE.PointsMaterial({
+    size: 1.6,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite:false,
+    blending: THREE.AdditiveBlending
+  });
+
+  const glowMat = new THREE.PointsMaterial({
+    size: 3.5,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.18,
+    depthWrite:false,
+    blending: THREE.AdditiveBlending
+  });
+
+  particles = new THREE.Points(geo, mat);
+  const glowParticles = new THREE.Points(geo, glowMat);
+
+  scene.add(glowParticles);
+  scene.add(particles);
+  animate();
+}
+
+let mouse = {x:-9999, y:-9999};
+let smoothMouse = {x:-9999, y:-9999};
+
+
+let currentRadius = 0;
+let targetRadius = 0;
+
+
+addEventListener('mousemove', e => {
+  mouse.x = (e.clientX - innerWidth/2);
+  mouse.y = (e.clientY - innerHeight/2);
+  targetRadius = 12000; 
+});
+addEventListener('mouseleave', () => {
+  targetRadius = 0; 
+});
+
+
+addEventListener('touchstart', e => {
+  mouse.x = (e.touches[0].clientX - innerWidth/2);
+  mouse.y = (e.touches[0].clientY - innerHeight/2);
+  
+
+  smoothMouse.x = mouse.x;
+  smoothMouse.y = mouse.y;
+  
+
+  currentRadius = 15000;
+  targetRadius = 15000;
+}, {passive: true});
+
+addEventListener('touchmove', e => {
+  mouse.x = (e.touches[0].clientX - innerWidth/2);
+  mouse.y = (e.touches[0].clientY - innerHeight/2);
+}, {passive: true});
+
+addEventListener('touchend', () => {
+  targetRadius = 0; 
+});
+
+let t = 0;
+function animate(){
+  requestAnimationFrame(animate);
+  t += 0.01;
+
+
+  smoothMouse.x += (mouse.x - smoothMouse.x) * 0.08;
+  smoothMouse.y += (mouse.y - smoothMouse.y) * 0.08;
+
+  currentRadius += (targetRadius - currentRadius) * 0.08;
+
+  if(particles){
+    const arr = particles.geometry.attributes.position.array;
+    const breath = (Math.sin(t)+1)/2;
+    particles.material.opacity = 0.65 + breath*0.25;
+
+    for(let i=0; i<orig.length; i++){
+      const i3 = i*3;
+      const o = orig[i];
+      const d0 = data[i];
+
+      d0.p += d0.s;
+
+
+      let x = o.x + Math.sin(d0.p + t*0.5) * 2.0;
+      let y = o.y + Math.cos(d0.p + t*0.5) * 2.0;
       
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-        camera.position.z = 800; 
 
-        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      let wave1 = Math.sin(t*1.5 + o.x*0.015 + o.y*0.01) * 8;
+      let wave2 = Math.cos(t*0.8 + o.x*0.02) * 5;
+      let z = o.z + wave1 + wave2;
 
-        let particleSystem;
-        let originalPositions = [];
-        let particlesData = [];
-
-        const image = new Image();
-        image.src = 'image_16.png'; 
-        
-        image.onload = () => {
-            initParticlesFromImage(image);
-        };
-
-        image.onerror = () => {
-            document.getElementById('error-msg').style.display = 'block';
-        }
-
-        function initParticlesFromImage(img) {
-            const tempCanvas = document.createElement('canvas');
-            const ctx = tempCanvas.getContext('2d');
-            
-            const width = img.width;
-            const height = img.height;
-            tempCanvas.width = width;
-            tempCanvas.height = height;
-            
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            let imageData;
-            try {
-                imageData = ctx.getImageData(0, 0, width, height).data;
-            } catch (e) {
-                document.getElementById('error-msg').style.display = 'block';
-                return;
-            }
-
-            const geometry = new THREE.BufferGeometry();
-            const positions = [];
-            const colors = [];
-      
-            const isMobile = window.innerWidth <= 768;
-            
-           
-            const scale = isMobile ? 0.35 : 0.8; 
-       
-            const depthScale = isMobile ? 25 : 60; 
-          
-            const step = isMobile ? 4 : 5; 
-         
-            const particleSize = isMobile ? 3.0 : 2.5; 
-
-            for (let y = 0; y < height; y += step) {
-                for (let x = 0; x < width; x += step) {
-                    const index = (y * width + x) * 4;
-                    const r = imageData[index];
-                    const g = imageData[index + 1];
-                    const b = imageData[index + 2];
-                    const a = imageData[index + 3];
-
-                    const brightness = (r + g + b) / 3;
-                    if (a > 50 && brightness > 30) {
-                        
-                        
-                        const pX = (x - width / 2) * scale;
-                        const pY = -(y - height / 2) * scale; 
-                        const pZ = (brightness / 255) * depthScale - (depthScale / 2); 
-
-                        positions.push(pX, pY, pZ);
-                        originalPositions.push({ x: pX, y: pY, z: pZ });
-                        
-                        particlesData.push({
-                            phase: Math.random() * Math.PI * 2,
-                            speed: 0.02 + Math.random() * 0.02
-                        });
-
-                        colors.push(r / 255, g / 255, b / 255);
-                    }
-                }
-            }
-
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-            const material = new THREE.PointsMaterial({
-                size: particleSize, 
-                vertexColors: true,
-                blending: THREE.AdditiveBlending, 
-                transparent: true,
-                opacity: 0.95, 
-                depthWrite: false
-            });
-
-            particleSystem = new THREE.Points(geometry, material);
-            scene.add(particleSystem);
-
-            animate();
-        }
+      const dx = smoothMouse.x - x;
+      const dy = -smoothMouse.y - y;
+      const dist = dx*dx + dy*dy;
 
 
-        const mouse = new THREE.Vector2(-9999, -9999);
-        let targetX = 0;
-        let targetY = 0;
+      if(currentRadius > 100 && dist < currentRadius){
+        const f = (currentRadius - dist)/currentRadius;
 
-        function updateInteractPosition(clientX, clientY) {
-            mouse.x = (clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
-            
+        x -= dx * f * 1.5; 
+        y -= dy * f * 1.5;
+        z += f * 15; 
+      }
 
-            const parallaxScale = window.innerWidth <= 768 ? 0.1 : 0.2;
-            targetX = (clientX - window.innerWidth / 2) * parallaxScale;
-            targetY = (clientY - window.innerHeight / 2) * parallaxScale;
-        }
 
-        document.addEventListener('mousemove', (event) => {
-            updateInteractPosition(event.clientX, event.clientY);
-        });
+      arr[i3]     += (x - arr[i3]) * 0.1;
+      arr[i3 + 1] += (y - arr[i3 + 1]) * 0.1;
+      arr[i3 + 2] += (z - arr[i3 + 2]) * 0.1;
+    }
 
-        document.addEventListener('touchmove', (event) => {
-            if(event.touches.length > 0) {
-                updateInteractPosition(event.touches[0].clientX, event.touches[0].clientY);
-            }
-        }, { passive: false });
+    particles.geometry.attributes.position.needsUpdate = true;
+  }
 
-        document.addEventListener('touchend', () => {
-            mouse.x = -9999;
-            mouse.y = -9999;
-            targetX = 0;
-            targetY = 0;
-        });
+  renderer.render(scene, camera);
+}
 
-        let time = 0;
-
-        function animate() {
-            requestAnimationFrame(animate);
-            time += 0.01;
-
-            if (particleSystem) {
-                const isMobile = window.innerWidth <= 768;
-                const positions = particleSystem.geometry.attributes.position.array;
-                
-                for (let i = 0; i < originalPositions.length; i++) {
-                    const i3 = i * 3;
-                    const orig = originalPositions[i];
-                    const data = particlesData[i];
-                    
-                    data.phase += data.speed;
-                    
-
-                    const waveAmplitude = isMobile ? 1.5 : 3;
-                    const zWaveAmplitude = isMobile ? 5 : 15;
-                    
-                    let currentX = orig.x + Math.sin(data.phase) * waveAmplitude;
-                    let currentY = orig.y + Math.cos(data.phase) * waveAmplitude;
-                    let currentZ = orig.z + Math.sin(time * 2 + orig.x * 0.01) * zWaveAmplitude;
-
-                    const mouseIn3D_X = mouse.x * (window.innerWidth / 2.5);
-                    const mouseIn3D_Y = mouse.y * (window.innerHeight / 2.5);
-                    
-                    const dx = mouseIn3D_X - currentX;
-                    const dy = mouseIn3D_Y - currentY;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-
-                    const interactRadius = isMobile ? 70 : 150; 
-                    
-                    if (distance < interactRadius) {
-                        const force = (interactRadius - distance) / interactRadius;
-                        currentX -= (dx / distance) * force * 50;
-                        currentY -= (dy / distance) * force * 50;
-                        currentZ += force * 100;
-                    }
-
-                    positions[i3] += (currentX - positions[i3]) * 0.1;
-                    positions[i3 + 1] += (currentY - positions[i3 + 1]) * 0.1;
-                    positions[i3 + 2] += (currentZ - positions[i3 + 2]) * 0.1;
-                }
-                
-                particleSystem.geometry.attributes.position.needsUpdate = true;
-                
-                camera.position.x += (targetX - camera.position.x) * 0.05;
-                camera.position.y += (-targetY - camera.position.y) * 0.05;
-                camera.lookAt(scene.position);
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-          
-        });
-    </script>
+addEventListener('resize', () => {
+  updateCamera();
+});
+</script>
 </body>
 </html>
