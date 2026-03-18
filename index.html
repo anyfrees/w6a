@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>W6A.COM | 您的专属空间</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #050608;
+            --text-main: #ffffff;
+            --neon-cyan: #1de9b6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: crosshair;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            font-family: 'Space Grotesk', sans-serif;
+            overflow: hidden;
+            color: var(--text-main);
+        }
+
+        #webgl-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        .ui-layer {
+            position: absolute;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 40px;
+            pointer-events: none;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1rem;
+            letter-spacing: 0.2em;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .domain-title {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.5rem;
+            letter-spacing: 0.5em;
+            font-weight: 300;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(29, 233, 182, 0.5);
+        }
+
+        .instruction {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.3);
+            letter-spacing: 0.1em;
+            animation: pulseText 2s infinite alternate;
+        }
+
+        @keyframes pulseText {
+            0% { opacity: 0.3; }
+            100% { opacity: 0.8; }
+        }
+
+        #error-msg {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            padding: 30px;
+            text-align: center;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="error-msg">
+        <h3 style="color: #ff4d4d; margin-bottom: 10px;">⚠️ 无法读取图像像素</h3>
+    </div>
+
+    <canvas id="webgl-canvas"></canvas>
+
+    <div class="ui-layer">
+        <header>
+            <div>欢迎您</div>
+            <div>联系：i@svip.email</div>
+        </header>
+        <div class="domain-title">域名正在出售 </div>
+        <div class="instruction">W6A.COM 版权所有</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('webgl-canvas');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050608, 0.001);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.z = 800; // 相机距离保持不变，通过缩小内部坐标来让画面更精致
+
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        let particleSystem;
+        let originalPositions = [];
+        let particlesData = [];
+
+        const image = new Image();
+        image.src = 'image_16.png'; 
+        
+        image.onload = () => {
+            initParticlesFromImage(image);
+        };
+
+        image.onerror = () => {
+            document.getElementById('error-msg').style.display = 'block';
+        }
+
+        function initParticlesFromImage(img) {
+            const tempCanvas = document.createElement('canvas');
+            const ctx = tempCanvas.getContext('2d');
+            
+            const width = img.width;
+            const height = img.height;
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            let imageData;
+            try {
+                imageData = ctx.getImageData(0, 0, width, height).data;
+            } catch (e) {
+                document.getElementById('error-msg').style.display = 'block';
+                return;
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+            
+            const step = 5; 
+            
+            for (let y = 0; y < height; y += step) {
+                for (let x = 0; x < width; x += step) {
+                    const index = (y * width + x) * 4;
+                    const r = imageData[index];
+                    const g = imageData[index + 1];
+                    const b = imageData[index + 2];
+                    const a = imageData[index + 3];
+
+                    const brightness = (r + g + b) / 3;
+                    if (a > 50 && brightness > 30) {
+                        
+                        // 【修改点 1：缩小映射比例】从 1.5 改为 0.8，整体标志变小，更聚拢
+                        const pX = (x - width / 2) * 0.8;
+                        const pY = -(y - height / 2) * 0.8; 
+                        
+                        // 【修改点 2：缩小深度厚度】从 100 改为 60，避免变小后显得太厚重
+                        const pZ = (brightness / 255) * 60 - 30; 
+
+                        positions.push(pX, pY, pZ);
+                        originalPositions.push({ x: pX, y: pY, z: pZ });
+                        
+                        particlesData.push({
+                            phase: Math.random() * Math.PI * 2,
+                            speed: 0.02 + Math.random() * 0.02
+                        });
+
+                        colors.push(r / 255, g / 255, b / 255);
+                    }
+                }
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 2.5, // 【修改点 3：缩小粒子尺寸】从 2.5 改为 1.8，让小尺寸下的标志更细腻清晰
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                opacity: 0.9,
+                depthWrite: false
+            });
+
+            particleSystem = new THREE.Points(geometry, material);
+            scene.add(particleSystem);
+
+            animate();
+        }
+
+        const mouse = new THREE.Vector2(-9999, -9999);
+        let targetX = 0;
+        let targetY = 0;
+
+        document.addEventListener('mousemove', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            targetX = (event.clientX - window.innerWidth / 2) * 0.2;
+            targetY = (event.clientY - window.innerHeight / 2) * 0.2;
+        });
+
+        let time = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+
+            if (particleSystem) {
+                const positions = particleSystem.geometry.attributes.position.array;
+                
+                for (let i = 0; i < originalPositions.length; i++) {
+                    const i3 = i * 3;
+                    const orig = originalPositions[i];
+                    const data = particlesData[i];
+                    
+                    data.phase += data.speed;
+                    let currentX = orig.x + Math.sin(data.phase) * 3;
+                    let currentY = orig.y + Math.cos(data.phase) * 3;
+                    let currentZ = orig.z + Math.sin(time * 2 + orig.x * 0.01) * 15;
+
+                    const mouseIn3D_X = mouse.x * (window.innerWidth / 2.5);
+                    const mouseIn3D_Y = mouse.y * (window.innerHeight / 2.5);
+                    
+                    const dx = mouseIn3D_X - currentX;
+                    const dy = mouseIn3D_Y - currentY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // 【修改点 4：缩小交互排斥半径】从 150 改为 100，适应缩小后的标志
+                    const interactRadius = 150; 
+                    if (distance < interactRadius) {
+                        const force = (interactRadius - distance) / interactRadius;
+                        currentX -= (dx / distance) * force * 50;
+                        currentY -= (dy / distance) * force * 50;
+                        currentZ += force * 100;
+                    }
+
+                    positions[i3] += (currentX - positions[i3]) * 0.1;
+                    positions[i3 + 1] += (currentY - positions[i3 + 1]) * 0.1;
+                    positions[i3 + 2] += (currentZ - positions[i3 + 2]) * 0.1;
+                }
+                
+                particleSystem.geometry.attributes.position.needsUpdate = true;
+                
+                camera.position.x += (targetX - camera.position.x) * 0.05;
+                camera.position.y += (-targetY - camera.position.y) * 0.05;
+                camera.lookAt(scene.position);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
